@@ -1,113 +1,131 @@
-import Image from "next/image";
+"use client"
+
+import { useState } from "react"
+import { PianoDisplay } from "./PianoDisplay"
+import { NOTES, Note, ROMAN_NUMERALS, SCALE } from "./constants"
+
+enum Mode {
+  Ionian = 0, // Major
+  Dorian = 1, // Minor with a major 6th
+  Phrygian = 2, // Minor with a flat 2nd
+  Lydian = 3, // Major with a sharp 4th
+  Mixolydian = 4, // Major with a flat 7th
+  Aeolian = 5, // Minor
+  Locrian = 6, // Minor with a flat 2nd and flat 5th
+}
+
+const getScale = (rootIndex: number, mode = 0) => {
+  const scale = SCALE.reduce(
+    (acc, step, index) => {
+      const prevNoteIndex = acc[index]
+      const nextNoteIndex = (prevNoteIndex + step) % NOTES.length
+      acc.push(nextNoteIndex)
+
+      return acc
+    },
+    [rootIndex % NOTES.length],
+  )
+
+  const normalizedMode = mode % NOTES.length
+  return scale.slice(normalizedMode).concat(scale.slice(0, normalizedMode))
+}
+
+const getNoteDisplay = (noteIndex: number) => {
+  return NOTES[noteIndex].join("/")
+}
+
+const getChord = (scale: number[], degree = 0) => {
+  return {
+    root: scale[degree % scale.length],
+    _3rd: scale[(degree + 2) % scale.length],
+    _5th: scale[(degree + 4) % scale.length],
+    _7th: scale[(degree + 6) % scale.length],
+    _9th: scale[(degree + 8) % scale.length],
+    _11th: scale[(degree + 10) % scale.length],
+    _13th: scale[(degree + 12) % scale.length],
+  }
+}
 
 export default function Home() {
+  const [rootNote, setRootNote] = useState(Note.C)
+  const mode = Mode.Ionian
+  const scale = getScale(rootNote, mode)
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 w-full max-w-5xl items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">app/page.tsx</code>
-        </p>
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:size-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
-        </div>
+    <div className="mx-auto w-full h-screen flex justify-center items-center flex-col gap-4">
+      <select
+        className="p-2 rounded-md border border-gray-200"
+        value={rootNote}
+        onChange={(e) => setRootNote(Number(e.target.value))}
+      >
+        {NOTES.map((note, index) => {
+          return (
+            <option key={note.join("/")} value={index}>
+              {note.join("/")}
+            </option>
+          )
+        })}
+      </select>
+      <PianoDisplay
+        className="w-56"
+        activeNotes={scale.map((note) => ({
+          note,
+        }))}
+        noteOffset={0}
+        octaves={3}
+      />
+      <div className="text-2xl font-bold grid grid-cols-3 gap-4">
+        {scale.map((note, index) => {
+          const noteDisplay = getNoteDisplay(note)
+          const chord = getChord(scale, index)
+          const triad = [chord.root, chord._3rd, chord._5th].map(getNoteDisplay)
+          const extensions = [
+            chord._7th,
+            chord._9th,
+            chord._11th,
+            chord._13th,
+          ].map(getNoteDisplay)
+
+          return (
+            <p
+              key={noteDisplay + index}
+              className="p-4 bg-gray-100 rounded-md border border-gray-200"
+            >
+              {noteDisplay}{" "}
+              <span className="text-sm text-gray-600">
+                {ROMAN_NUMERALS[index]}
+              </span>
+              <span className="text-sm block text-gray-600">
+                {triad.join(" + ")}
+              </span>
+              <span className="text-sm block text-gray-600">
+                {extensions.join(" + ")}
+              </span>
+              <PianoDisplay
+                className="w-56"
+                activeNotes={[
+                  ...[chord.root, chord._3rd, chord._5th].map((note) => ({
+                    note,
+                    octaves: note < chord.root ? [1] : [0],
+                  })),
+                  {
+                    note: chord._7th,
+                    octaves: chord._7th < chord.root ? [1] : [0],
+                    className: "fill-current text-green-500",
+                  },
+                  ...[chord._9th, chord._11th, chord._13th].map((note) => ({
+                    note,
+                    octaves: note < chord.root ? [2] : [1],
+                    className: "fill-current text-blue-500",
+                  })),
+                ]}
+                noteOffset={0}
+                octaves={3}
+              />
+            </p>
+          )
+        })}
       </div>
-
-      <div className="relative z-[-1] flex place-items-center before:absolute before:h-[300px] before:w-full before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-full after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 sm:before:w-[480px] sm:after:w-[240px] before:lg:h-[360px]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:mb-0 lg:w-full lg:max-w-5xl lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-sm opacity-50">
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className="m-0 max-w-[30ch] text-balance text-sm opacity-50">
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
-    </main>
-  );
+    </div>
+  )
 }
